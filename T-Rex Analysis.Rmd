@@ -2,29 +2,134 @@
 title: "T-Rex Analysis"
 author: "Hartaig Singh"
 date: "September 12, 2017"
-output: html_document
+output:
+  word_document: default
+  html_document: default
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r setup,message=FALSE,warning=FALSE, echo=FALSE}
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(knitr)
+library(MASS)
+library(boot)
+library(faraway)
+library(gridExtra)
+library(plotly)
+library(leaps)
+library(pander)
+library(grid)
+library(ggfortify)
+library(ggthemes)
+library(glmnet)
+library(lattice)
+library(reshape2)
+library(broom)
+library(caret)
+library(plotmo)
+library(lme4)
+library(afex)
+library(nlme)
+library(nnet)
+library(xlsx)
+library(readxl)
+library(Rserve)
+library(ggmap)
+library(reshape)
+library(VIM) 
+library(mi) 
+library(regtools) 
+library(mitools) 
+library(caTools)
+library(rpart)
+library(nnet)
+library(randomForest)
+library(ROCR)
+library(ResourceSelection)
+library(Deducer)
+library(afex)
+library(car)
+library(ggrepel)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+Import Data
+```{r}
+Trex <- read.table("P8121F17-HW1-Trex.txt",header=T)
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
+Scatterplot
+```{r}
+ggplot(Trex,aes(Carbonate,Calcite,label=Id)) + geom_point() + geom_text_repel(aes(label=Id)) 
+```
+Points 1 and 2 appear furthest away from the rest of data
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+Linear Regression
+```{r}
+m1 <- lm(Calcite~Carbonate,Trex)
+summary(m1)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+**Interpretation**
+
+*Carbonate:* For every unit increase in carbonate, calcite increases by 1.07 on average holding all other variables constant
+
+*R^2:* 84.72% of the variation in calcite is explained by carbonate
+
+Remove First Data point
+```{r}
+m2 <- lm(Calcite~Carbonate,slice(Trex,2:18))
+summary(m2)
+```
+
+**Interpretation**
+
+*Carbonate:* For every unit increase in Carbonate, Calcite increases by .9217 on average holding all other variables constant
+
+*R^2:* 67.18% of the variation in Calcite is explained by Carbonate
+
+Removing the first point decreased the R^2 by 20.7%. This is because removing points decreases the variance in carbonate giving you less of an ability to explain the variation in Calcite
+
+Remove furthest two obersvations
+```{r}
+m3 <- lm(Calcite~Carbonate,slice(Trex,3:18))
+summary(m3)
+```
+
+**Interpretation**
+
+*Carbonate:* For every unit increase in Carbonate, Calcite increases by .5896 on average holding all other variables constant
+
+*R^2:* 33.98% of the variation in Calcite is explained by Carbonate
+
+As expected, the R^2 decreases even more because we have increasingly less information to explain the variation in Calcite
+
+Measures of Influence
+```{r}
+influence.measures(m1)
+```
+Observtations 1 and 2 are flagged by R as influential points as expected
+
+Remove first observation measure of influence
+```{r}
+influence.measures(m2)
+```
+
+The second obersvation which we guessed to be influential is flagged and rightfully so since it has a relatively high hat value indicating it being far from the rest of the data, high dffit, and dfbetas showing it having a heavy impact on the estimates and fitting line.
+
+
+Remove first 2 observation measure of influence
+```{r}
+influence.measures(m3)
+```
+
+There are no influential points since it is clear from the scatter plot that every other point aside from the first two are clustered together
+
+```{r}
+rstandard(m1) - rstudent(m1)
+```
+
+The more observations that are deleted, the more emphasis the measures of influence put on the next observation which makes sense since these metrics are all relative to the data set. This tends to be an issue with small data sets where any slight deviation from a group will trigger potential red flags causing spurious influences.
+
+The deleted studentizes residuals do not really tell us much in terms of outliers since the values above are all still relatively small. 
